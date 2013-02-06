@@ -64,7 +64,7 @@ namespace :client do
     cp_r File.join("src", "main", "library"), CLIENT_BUILD_ROOT
 
     File.open File.join(CLIENT_BUILD_ROOT, "main.lua"), "w" do |file|
-      file.write "require 'client/love'"
+      file.write "require 'client/bootstrap'"
     end
   end
 
@@ -91,7 +91,7 @@ namespace :server do
 
   desc "runs the server"
   task :run => :setup_lua_path do
-    sh "lua -e \"require 'server/server'\""
+    sh "lua -e \"require 'server/bootstrap'\""
   end
 
   desc "creates build/server-main.lua which bootstraps the server for execution"
@@ -99,7 +99,7 @@ namespace :server do
     mkdir_p "build"
 
     File.open File.join("build", "server-main.lua"), "w" do |file|
-      file.puts "require 'server/server'"
+      file.puts "require 'server/bootstrap'"
     end
   end
 
