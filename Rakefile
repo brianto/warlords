@@ -6,6 +6,10 @@ TEST_LIB = File.join "lib", "test"
 MAIN_SRC = File.join "src", "main"
 TEST_SRC = File.join "src", "test"
 
+CLIENT_BUILD_ROOT = File.join "build", "client"
+
+SQUISH_TOOL = File.join "tools", "squish.lua"
+
 def lua_requires(*path_elements)
   Dir.glob(File.join(path_elements)).collect do |file|
     parts = file.split File::SEPARATOR
@@ -17,9 +21,13 @@ def lua_requires(*path_elements)
 end
 
 def lua_files(*path_elements)
-  Dir.glob(File.join(path_elements)).filter do |file|
-    file =~ ".lua"
+  Dir.glob(File.join(path_elements)).keep_if do |file|
+    file =~ /\.lua/
   end
+end
+
+def timestamp
+  Time.now.strftime "%Y-%m-%d"
 end
 
 task :clean do
@@ -31,31 +39,30 @@ task :test do
 end
 
 namespace :client do
-  BUILD_ROOT = File.join "build", "client"
-
   task :run => :build do
-    ENV["LUA_PATH"] = "#{BUILD_ROOT}/?.lua"
+    ENV["LUA_PATH"] = "#{CLIENT_BUILD_ROOT}/?.lua"
 
-    sh "love #{BUILD_ROOT}"
+    sh "love #{CLIENT_BUILD_ROOT}"
   end
 
   task :build do
-    mkdir_p BUILD_ROOT
+    mkdir_p CLIENT_BUILD_ROOT
 
-    cp_r File.join("lib", "main", "."), BUILD_ROOT
-    cp_r File.join("src", "main", "client"), BUILD_ROOT
-    cp_r File.join("src", "main", "core"), BUILD_ROOT
+    cp_r File.join("lib", "main", "."), CLIENT_BUILD_ROOT
+    cp_r File.join("src", "main", "client"), CLIENT_BUILD_ROOT
+    cp_r File.join("src", "main", "core"), CLIENT_BUILD_ROOT
+    cp_r File.join("src", "main", "library"), CLIENT_BUILD_ROOT
 
-    File.open File.join(BUILD_ROOT, "main.lua"), "w" do |file|
+    File.open File.join(CLIENT_BUILD_ROOT, "main.lua"), "w" do |file|
       file.write "require 'client/love'"
     end
   end
 
   task :package => :build do
-    filename = File.join "build", "warlords-client-#{Time.now.strftime "%Y-%m-%d"}.zip"
+    filename = File.join "build", "warlords-client-#{timestamp}.zip"
 
     Zip::ZipFile.open(filename, Zip::ZipFile::CREATE) do |zip|
-      Dir.glob(File.join(BUILD_ROOT, "**", "*.lua")).each do |file|
+      Dir.glob(File.join(CLIENT_BUILD_ROOT, "**", "*.lua")).each do |file|
         destination = file.split(File::SEPARATOR).drop(2).join(File::SEPARATOR)
         zip.add destination, file
       end
@@ -64,8 +71,54 @@ namespace :client do
 end
 
 namespace :server do
-  task :build do
+  task :setup_lua_path do
+    ENV["LUA_PATH"] = [MAIN_LIB, MAIN_SRC].collect do |path|
+      File.join path, "?.lua"
+    end.join(";")
+  end
 
+  task :run => :setup_lua_path do
+    sh "lua -e \"require 'server/server'\""
+  end
+
+  task :create_server_bootstrap do
+    mkdir_p "build"
+
+    File.open File.join("build", "server-main.lua"), "w" do |file|
+      file.puts "require 'server/server'"
+    end
+  end
+
+  task :create_squishy => :create_server_bootstrap do
+    mkdir_p "build"
+
+    lib = ["lib", "main", "*.lua"]
+    server = ["src", "main", "server", "*.lua"]
+    core = ["src", "main", "core", "*.lua"]
+    library = ["src", "main", "library", "**", "*.lua"]
+
+    lua_modules = [lib, server, core, library]
+
+    File.open File.join("build", "squishy"), "w" do |file|
+      lua_modules.each do |parts|
+        files = lua_files parts
+        requires = lua_requires parts
+
+        files.zip(requires).each do |path, lua_require|
+          relative_path = File.join "..", path
+          file.puts "Module '#{lua_require}' '#{relative_path}'"
+        end
+      end
+
+      file.puts "Main 'server-main.lua'"
+
+      output_file = File.join "build", "warlords-server-#{timestamp}.lua"
+      file.puts "Output '#{output_file}'"
+    end
+  end
+
+  task :package => :create_squishy do
+    sh "lua #{SQUISH_TOOL} build -vv"
   end
 end
 
