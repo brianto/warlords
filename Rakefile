@@ -30,21 +30,31 @@ def timestamp
   Time.now.strftime "%Y-%m-%d"
 end
 
+desc "purges workspace of build artifacts"
 task :clean do
   rm_rf "build"
 end
 
+desc "compiles client into a LOVE package and server into a standalone file"
+task :package do
+  Rake::Task["client:package"].invoke
+  Rake::Task["server:package"].invoke
+end
+
+desc "runs all server, core, and library tests"
 task :test do
   Rake::Task["test:all"].invoke
 end
 
 namespace :client do
+  desc "starts the LOVE client"
   task :run => :build do
     ENV["LUA_PATH"] = "#{CLIENT_BUILD_ROOT}/?.lua"
 
     sh "love #{CLIENT_BUILD_ROOT}"
   end
 
+  desc "copies client source and dependencies for execution and/or packaging"
   task :build do
     mkdir_p CLIENT_BUILD_ROOT
 
@@ -58,6 +68,7 @@ namespace :client do
     end
   end
 
+  desc "creates a LOVE compliant package for execution"
   task :package => :build do
     filename = File.join "build", "warlords-client-#{timestamp}.zip"
 
@@ -71,16 +82,19 @@ namespace :client do
 end
 
 namespace :server do
+  desc "sets the LUA_PATH environment variable for source execution"
   task :setup_lua_path do
     ENV["LUA_PATH"] = [MAIN_LIB, MAIN_SRC].collect do |path|
       File.join path, "?.lua"
     end.join(";")
   end
 
+  desc "runs the server"
   task :run => :setup_lua_path do
     sh "lua -e \"require 'server/server'\""
   end
 
+  desc "creates build/server-main.lua which bootstraps the server for execution"
   task :create_server_bootstrap do
     mkdir_p "build"
 
@@ -89,6 +103,7 @@ namespace :server do
     end
   end
 
+  desc "generates a squishy packaging descriptor for combining server dependencies"
   task :create_squishy => :create_server_bootstrap do
     mkdir_p "build"
 
@@ -117,6 +132,7 @@ namespace :server do
     end
   end
 
+  desc "packages the server code into a standalone lua file"
   task :package => :create_squishy do
     sh "lua #{SQUISH_TOOL} build -vv"
   end
@@ -130,24 +146,29 @@ namespace :test do
     sh "lua #{TEST_LAUNCHER} #{tests.join(' ')}"
   end
 
+  desc "sets the LUA_PATH environment variable for source testing"
   task :setup_lua_path do
     ENV["LUA_PATH"] = [MAIN_LIB, TEST_LIB, MAIN_SRC, TEST_SRC].collect do |path|
       File.join path, "?.lua"
     end.join(";")
   end
 
+  desc "runs all tests in src/tests"
   task :all => :setup_lua_path do
     lua_test "src", "test", "**", "*.lua"
   end
 
+  desc "runs all tests in src/tests/server"
   task :server => :setup_lua_path do
     lua_test "src", "test", "server", "*.lua"
   end
 
+  desc "runs all tests in src/tests/core"
   task :core => :setup_lua_path do
    lua_test "src", "test", "core", "*.lua"
   end
 
+  desc "runs tests for all or a specific library in src/tests/library"
   task :library, [:set] => :setup_lua_path do |task, params|
     params[:set] ||= ""
 
