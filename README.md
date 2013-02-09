@@ -1,1 +1,1 @@
-# Warlords
+# Warlords Trading Card Game

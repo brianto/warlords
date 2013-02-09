@@ -11,4 +11,4 @@ for _, file in ipairs(arg) do
   require(file)
 end
 
-spec:report()
+spec:report(true)
