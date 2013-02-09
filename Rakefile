@@ -99,7 +99,7 @@ namespace :server do
     mkdir_p "build"
 
     File.open File.join("build", "server-main.lua"), "w" do |file|
-      file.puts "require 'server/bootstrap'"
+      file.puts "require 'server/main'"
     end
   end
 
