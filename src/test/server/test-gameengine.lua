@@ -1,4 +1,4 @@
-require 'gameengine'
+require 'server/gameengine'
 
 describe["game engine"] = function()
   before = function()
