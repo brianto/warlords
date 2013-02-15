@@ -158,6 +158,11 @@ namespace :test do
     lua_test "src", "test", "**", "*.lua"
   end
 
+  desc "runs a single lua test"
+  task :single, [:filepath] => [:setup_lua_path] do |task, params|
+    lua_test "src", "test", "#{params[:filepath]}.lua"
+  end
+
   desc "runs all tests in src/tests/server"
   task :server => :setup_lua_path do
     lua_test "src", "test", "server", "*.lua"
